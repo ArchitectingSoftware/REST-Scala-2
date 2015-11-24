@@ -27,19 +27,40 @@ object DBMock {
   }
 
   //build a map so that pubID -> Publication object
-  private lazy val pubDBMap = {
+  private lazy val pubDBMap : Map[Option[Integer],Publication] = {
     val pubList = pubDBJson.extract[List[Publication]]
     pubList map (p => p.id -> p) toMap
   }
 
   def getAll = {
-    compact(render(pubDBJson))
+    val pubList = pubDBMap.values toArray
+    val md = new MetaData(pubList.length,false,200,"OK")
+    val results = new PubResults(pubList,md)
+
+
+    write(results)
+    //compact(render(pubDBJson))
   }
 
   def getPub(idx:Integer) = {
-    val thePub = pubDBMap.getOrElse(Some(idx),
-                new Publication(error = Some(new PublicationError(500,"The Publication with index "+ idx + " is invalid"))))
+    //val thePub = pubDBMap.getOrElse(Some(idx),
+    //            new Publication(error = Some(new PublicationError(404,"The Publication with index "+ idx + " is invalid"))))
 
-    write(thePub)
+    val thePub = pubDBMap.get(Some(idx))
+
+    val res = thePub match{
+      case Some(p) => {
+        val md = new MetaData(1,false,200,"OK");
+        val payload = Array[Publication](p)
+        new PubResults(payload,md)
+      }
+      case None => {
+        val e = new PublicationError(404,"The Publication with index "+ idx + " is invalid")
+        val md = new MetaData(0,true,e.id,e.msg);
+        val payload = Array.empty[Publication]
+        new PubResults(payload,md)
+      }
+    }
+    write(res)
   }
 }
